@@ -1,0 +1,282 @@
+-- Para el registro de los empleado y el estatus
+CREATE TABLE Empleado (
+    IdEmpleado INT PRIMARY KEY IDENTITY(1,1),
+    Nombre NVARCHAR(100) NOT NULL UNIQUE,
+    PuestoLaboral NVARCHAR(100) NOT NULL,
+    EstadoVacunacion NVARCHAR(50) NOT NULL DEFAULT 'EN RIESGO',
+    Estado BIT NOT NULL DEFAULT 1 -- 1 significa Activo, 0 significa Inactivo
+);
+
+-- Para llevar un catalogo de vacunas y los seguimientos
+CREATE TABLE TipoVacuna (
+    IdTipoVacuna INT PRIMARY KEY IDENTITY(1,1),
+    NombreVacuna NVARCHAR(100) NOT NULL UNIQUE,
+    DiasParaSegundaDosis INT NOT NULL
+);
+
+-- Insertar datos para el catalogo en la tabla TipoVacuna
+INSERT INTO TipoVacuna (NombreVacuna, DiasParaSegundaDosis) VALUES
+('Sinopharm', 28),
+('AstraZeneca', 56),
+('Sputnik V', 60),
+('Pfizer', 21),
+('Moderna', 28),
+('Janssen', 0);
+
+-- La relacion de muchos a mucho entre empleado y vacuna
+CREATE TABLE Vacuna (
+    IdVacuna INT PRIMARY KEY IDENTITY(1,1),
+    IdEmpleado INT NOT NULL,
+    IdTipoVacuna INT NOT NULL,
+    FechaPrimeraDosis DATE NOT NULL,
+    FechaSegundaDosis DATE NULL,
+    FOREIGN KEY (IdEmpleado) REFERENCES Empleado(IdEmpleado),
+    FOREIGN KEY (IdTipoVacuna) REFERENCES TipoVacuna(IdTipoVacuna)
+);
+
+-- TRIGGER PARA EL CALCULO DE LAS SEGUNDAS DOSIS
+
+-- Cree un trigger para calcular la fecha de la segunda dosis y actualizar el estado de vacunación
+CREATE TRIGGER trg_CalcularSegundaDosis
+ON Vacuna
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @IdEmpleado INT;
+    DECLARE @IdVacuna INT;
+    DECLARE @TipoVacuna NVARCHAR(50);
+    DECLARE @FechaPrimeraDosis DATE;
+    DECLARE @TotalVacunas INT;
+
+    -- Seleccionar los valores de la tabla inserted
+    SELECT @IdVacuna = IdVacuna, @IdEmpleado = IdEmpleado, @TipoVacuna = tv.NombreVacuna, @FechaPrimeraDosis = i.FechaPrimeraDosis
+    FROM inserted i
+    JOIN TipoVacuna tv ON i.IdTipoVacuna = tv.IdTipoVacuna;
+
+    -- Contar el número de vacunas registradas para este empleado
+    SET @TotalVacunas = (SELECT COUNT(*) FROM Vacuna WHERE IdEmpleado = @IdEmpleado);
+
+    -- Calcular la fecha de la segunda dosis solo si es la primera dosis
+    IF @TotalVacunas = 1
+    BEGIN
+        UPDATE Vacuna
+        SET FechaSegundaDosis = CASE 
+                                    WHEN @TipoVacuna = 'Sinopharm' THEN DATEADD(WEEK, 4, @FechaPrimeraDosis)
+                                    WHEN @TipoVacuna = 'AstraZeneca' THEN DATEADD(WEEK, 8, @FechaPrimeraDosis)
+                                    WHEN @TipoVacuna = 'Sputnik V' THEN DATEADD(DAY, 60, @FechaPrimeraDosis)
+                                    WHEN @TipoVacuna = 'Pfizer' THEN DATEADD(DAY, 21, @FechaPrimeraDosis)
+                                    WHEN @TipoVacuna = 'Moderna' THEN DATEADD(DAY, 28, @FechaPrimeraDosis)
+                                    WHEN @TipoVacuna = 'Janssen' THEN NULL
+                                    ELSE NULL
+                                END
+        WHERE IdVacuna = @IdVacuna;
+    END
+    ELSE
+    BEGIN
+        -- Si es la segunda dosis o más, no hacer nada (la fecha de segunda dosis permanecerá NULL)
+        UPDATE Vacuna
+        SET FechaSegundaDosis = NULL
+        WHERE IdVacuna = @IdVacuna;
+    END
+
+    -- Actualizar el estado de vacunación del empleado
+    UPDATE Empleado
+    SET EstadoVacunacion = CASE 
+                              WHEN @TotalVacunas = 2 THEN 'PROTEGIDO'
+                              ELSE 'EN PROGRESO'
+                           END
+    WHERE IdEmpleado = @IdEmpleado;
+END;
+
+-- PROCEDIMIENTOS ALMACENADOS
+
+-- CONSULTA
+SELECT v.IdVacuna, e.Nombre, e.EstadoVacunacion, tv.NombreVacuna, v.FechaPrimeraDosis, v.FechaSegundaDosis 
+FROM Empleado e
+INNER JOIN Vacuna v 
+ON v.IdEmpleado = e.IdEmpleado
+INNER JOIN TipoVacuna tv
+ON tv.IdTipoVacuna = v.IdTipoVacuna
+WHERE e.IdEmpleado = 4 AND e.Estado = 1;
+
+-- Procedimiento almacenado que ejecuta el CRUD de EMPLEADO
+CREATE PROCEDURE pc_empleado
+    @IDEmpleado INT = NULL,
+    @Nombre NVARCHAR(100) = NULL,
+    @PuestoLaboral NVARCHAR(100) = NULL,
+    @EstadoVacunacion NVARCHAR(50) = NULL,
+    @Opcion INT
+AS 
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @Opcion = 1
+    BEGIN
+        -- Insertar un nuevo empleado
+        BEGIN TRANSACTION;
+
+        INSERT INTO Empleado (Nombre, PuestoLaboral)
+        VALUES (@Nombre, @PuestoLaboral);
+
+        COMMIT;
+        
+        -- Retornar el último empleado insertado
+        SELECT * FROM Empleado
+        WHERE IdEmpleado = SCOPE_IDENTITY();
+    END
+    ELSE IF @Opcion = 2
+    BEGIN
+        -- Actualizar un empleado existente
+        BEGIN TRANSACTION;
+        UPDATE Empleado
+        SET Nombre = @Nombre,
+            PuestoLaboral = @PuestoLaboral
+        WHERE IdEmpleado = @IDEmpleado;
+        COMMIT;
+        
+        -- Retornar el empleado actualizado
+        SELECT * FROM Empleado
+        WHERE IdEmpleado = @IDEmpleado;
+    END
+    ELSE IF @Opcion = 3
+    BEGIN
+        -- Cambiar el estado de un empleado
+        BEGIN TRANSACTION;
+        UPDATE Empleado
+        SET Estado = 0
+        WHERE IdEmpleado = @IDEmpleado;
+        COMMIT;
+        
+        -- Retornar el empleado con el estado cambiado
+        SELECT * FROM Empleado
+        WHERE IdEmpleado = @IDEmpleado;
+    END
+    ELSE IF @Opcion = 4
+    BEGIN
+        -- Obtener todos los empleados activos
+        SELECT 
+			e.IdEmpleado, 
+			e.Nombre, 
+			e.PuestoLaboral, 
+			FORMAT(MAX(v.FechaPrimeraDosis), 'dd-MM-yyyy') AS FechaPrimeraDosis, 
+			MAX(tv.NombreVacuna) AS NombreVacuna, 
+			e.EstadoVacunacion 
+		FROM 
+			Empleado e
+		LEFT JOIN 
+			Vacuna v ON e.IdEmpleado = v.IdEmpleado
+		LEFT JOIN 
+			TipoVacuna tv ON v.IdTipoVacuna = tv.IdTipoVacuna
+		WHERE 
+			e.Estado = 1
+		GROUP BY 
+			e.IdEmpleado, 
+			e.Nombre, 
+			e.PuestoLaboral, 
+			e.EstadoVacunacion
+		ORDER BY 
+			e.Nombre;
+
+    END
+	ELSE IF @Opcion = 5
+    BEGIN
+        -- Obtener un empleado espesifico activo
+        SELECT IdEmpleado, Nombre, PuestoLaboral, EstadoVacunacion FROM Empleado
+        WHERE Estado = 1 
+		AND IdEmpleado = @IDEmpleado;
+    END
+	ELSE IF @Opcion = 6
+    BEGIN
+        -- Obtener los datos para el dashboard
+        SELECT
+			COUNT(CASE WHEN v.FechaPrimeraDosis IS NULL THEN e.IdEmpleado END) AS SinDosis,
+			COUNT(CASE WHEN v.FechaPrimeraDosis IS NOT NULL AND v.FechaSegundaDosis IS NULL THEN e.IdEmpleado END) AS UnaDosis,
+			COUNT(CASE WHEN v.FechaPrimeraDosis IS NOT NULL AND v.FechaSegundaDosis IS NOT NULL THEN e.IdEmpleado END) AS DosDosis,
+			COUNT(e.IdEmpleado) AS TotalEmpleados
+		FROM
+			Empleado e
+		LEFT JOIN Vacuna v ON e.IdEmpleado = v.IdEmpleado
+		WHERE
+			e.Estado = 1;  
+    END
+	ELSE IF @Opcion = 7
+    BEGIN
+        -- Obtener un empleado activos
+        SELECT IdEmpleado, Nombre FROM Empleado
+        WHERE Estado = 1;
+    END
+END;
+
+CREATE PROCEDURE pc_vacuna
+    @IDVacuna INT = NULL,
+    @IDEmpleado INT = NULL,
+    @IDTipoVacuna INT = NULL,
+    @FechaPrimeraDosis DATE = NULL,
+    @Opcion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF @Opcion = 1
+    BEGIN
+        -- Insertar un nuevo empleado
+        BEGIN TRANSACTION;
+
+        INSERT INTO Vacuna(IdEmpleado, IdTipoVacuna, FechaPrimeraDosis, FechaSegundaDosis)
+        VALUES (@IDEmpleado, @IDTipoVacuna, @FechaPrimeraDosis, NULL);
+
+        COMMIT;
+        
+        -- Retornar el último empleado insertado
+        SELECT * FROM Vacuna
+        WHERE IdVacuna = SCOPE_IDENTITY();
+    END
+	ELSE IF @Opcion = 2
+    BEGIN
+        -- Actualizar un empleado existente
+        BEGIN TRANSACTION;
+        UPDATE Vacuna
+        SET IdEmpleado = @IDEmpleado,
+            IdTipoVacuna = @IDTipoVacuna,
+            FechaPrimeraDosis = @FechaPrimeraDosis
+        WHERE IdVacuna = @IDVacuna AND IdEmpleado = IdEmpleado;
+        COMMIT;
+        
+        -- Retornar el empleado actualizado
+        SELECT * FROM Vacuna
+        WHERE IdVacuna = @IDVacuna;
+    END
+	ELSE IF @Opcion = 3
+    BEGIN
+		-- Consulta para obtener 
+        SELECT tv.NombreVacuna, COUNT(*) AS CantidadAdminsitrada
+		FROM Vacuna v
+		INNER JOIN TipoVacuna tv ON v.IdTipoVacuna = tv.IdTipoVacuna
+		GROUP BY tv.NombreVacuna
+		ORDER BY COUNT(*) DESC;
+    END
+	ELSE IF @Opcion = 4
+    BEGIN
+		-- Consulta que me devuelve el nombre y la cantidad administrada
+        SELECT IdTipoVacuna, NombreVacuna FROM TipoVacuna;
+    END
+	ELSE IF @Opcion = 5
+    BEGIN
+		-- Consulta de reporte de siguiente dosis
+        SELECT 
+			e.Nombre,
+			FORMAT(v.FechaPrimeraDosis, 'dd-MM-yyyy') AS FechaPrimeraDosis,
+			t.NombreVacuna,
+			FORMAT(FechaSegundaDosis, 'dd-MM-yyyy') AS FechaSegundaDosis
+		FROM 
+			Empleado e
+		JOIN 
+			Vacuna v ON e.IdEmpleado = v.IdEmpleado
+		JOIN 
+			TipoVacuna t ON v.IdTipoVacuna = t.IdTipoVacuna
+		WHERE 
+			e.IdEmpleado = @IDEmpleado AND v.FechaPrimeraDosis IS NOT NULL AND v.FechaSegundaDosis IS NOT NULL;
+    END
+END;
