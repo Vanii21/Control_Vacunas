@@ -35,6 +35,13 @@ Abrir Visual Studio Code y abrir la carpeta app_ControlVacunas, dirigirse a la c
 CARPETA SERVER:
 Levantar Visual Studio 2022 y abrir el proyecto "Server" que se encuentra en la carpeta app_ControlVacunas, el cual ejecuta la parte del backend. Ejecutar proyecto con F5 o con el botón start llamado "server"
 
+## Conexion a la base de datos
+el archivo appsettings.json se encuentra la cadena de conexion el cual permite la cominacion y el envio de informacion. Colocar sus propias credenciales:
+
+"ConnectionStrings": {
+  "MainConnection": "Server=*****; Database=*****; User Id=*****; Password=*****;"
+}
+
 ## Visualización 
 
 La aplicación se despliega en la siguiente ruta: http://localhost:5173/

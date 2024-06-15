@@ -44,7 +44,7 @@ const Empleado = () => {
   };
 
   const handleBuscar = () => {
-    // Realizar la búsqueda por código
+    // Realizar la búsqueda por código de empleado
     axios.get(`https://localhost:7176/api/empleado/one/${codigoBusqueda}`)
       .then(response => {
         const { data } = response.data
@@ -54,7 +54,7 @@ const Empleado = () => {
   };
 
   const handleAgregar = () => {
-    // Lógica para agregar un nuevo empleado
+    // Agregar un nuevo empleado
     axios.post('https://localhost:7176/api/empleado/add', nuevoEmpleado)
       .then(() => {
         setNuevoEmpleado({
@@ -97,7 +97,7 @@ const Empleado = () => {
   };
 
   const handleGuardarEdicion = () => {
-    // Lógica para guardar los cambios del empleado editado
+    // Guardar los cambios del empleado editado
     axios.post(`https://localhost:7176/api/empleado/update`, empleadoEditando)
       .then(() => {
         setMostrarFormularioEdicion(false);
@@ -115,7 +115,7 @@ const Empleado = () => {
   };
 
   const handleEliminar = (id) => {
-    // Lógica para eliminar un empleado
+    // Eliminar un empleado
     axios.post(`https://localhost:7176/api/empleado/state/${id}`)
       .then(() => {
         showAlertAccept('Se ha eliminado correctamente');
