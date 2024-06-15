@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react';
+import { showAlertAccept, showAlertError } from '../../../helpers/alerts/showAlert';
 import './vacuna.css'
 import axios from 'axios';
 import Select from 'react-select';
@@ -60,11 +61,11 @@ const Vacuna = () => {
     e.preventDefault();
     axios.post('https://localhost:7176/api/vacuna/add', formData)
       .then(response => {
-        console.log('Vacuna agregada con éxito:', response.data);
+        showAlertAccept('Vacuna agregada con éxito', response.data);
         // Aquí puedes agregar lógica adicional, como mostrar un mensaje de éxito o limpiar el formulario.
       })
       .catch(error => {
-        console.error('Error al agregar la vacuna:', error);
+        showAlertError('Error al agregar la vacuna: ', error);
         // Aquí puedes manejar errores, como mostrar un mensaje de error al usuario.
       });
   };

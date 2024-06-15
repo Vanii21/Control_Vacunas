@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { showAlertAccept, showAlertError } from '../../../helpers/alerts/showAlert';
 import axios from 'axios';
 import Pagination from '../../../components/Pagination';
 import './empleado.css'
@@ -62,6 +63,7 @@ const Empleado = () => {
           estadoVacunacion: '',
           estado: ''
         });
+        showAlertAccept('Se ha agregado correctamente');
         fetchData();
       })
       .catch(error => console.error(error));
@@ -78,17 +80,21 @@ const Empleado = () => {
     setMostrarFormularioEdicion(true);
   };
 
-  const handleVacunacion = (id) => {
-    axios.get(`https://localhost:7176/api/vacuna/reporte/${id}`)
-      .then(response => {
-        const { data } = response.data;
-        setEmpleadoVacunacion(data[0]);
-        setMostrarFormularioVacunacion(true);
-      })
-      .catch(error => console.error(error));
+  const handleVacunacion = (id, vacuna) => {
+    if (vacuna) {
+      axios.get(`https://localhost:7176/api/vacuna/reporte/${id}`)
+        .then(response => {
+          const { data } = response.data;
+          console.log(data[0]);
+          setEmpleadoVacunacion(data[0]);
+          setMostrarFormularioVacunacion(true);
+        })
+        .catch(error => console.error(error));
+    } else {
+      showAlertError('El empleado no cuenta con ninguna dosis')
+    }
+      
   };
-
-  console.log(empleadoVacunacion);
 
   const handleGuardarEdicion = () => {
     // Lógica para guardar los cambios del empleado editado
@@ -102,6 +108,7 @@ const Empleado = () => {
           estadoVacunacion: '',
           estado: ''
         });
+        showAlertAccept('Se ha editado correctamente');
         fetchData();
       })
       .catch(error => console.error(error));
@@ -111,6 +118,7 @@ const Empleado = () => {
     // Lógica para eliminar un empleado
     axios.post(`https://localhost:7176/api/empleado/state/${id}`)
       .then(() => {
+        showAlertAccept('Se ha eliminado correctamente');
         fetchData();
       })
       .catch(error => console.error(error));
@@ -240,7 +248,7 @@ const Empleado = () => {
                   <td>{NombreVacuna}</td>
                   <td>{EstadoVacunacion}</td>
                   <td>
-                    <a href="#" onClick={() => handleVacunacion(IdEmpleado)} style={{ display: 'flex', alignItems: 'center', color: 'blue', cursor: 'pointer' }}>
+                    <a href="#" onClick={() => handleVacunacion(IdEmpleado, NombreVacuna)} style={{ display: 'flex', alignItems: 'center', color: 'blue', cursor: 'pointer' }}>
                       <span className="material-icons-outlined" style={{ marginRight: '5px' }}>calendar_today</span>
                       Cita
                     </a>

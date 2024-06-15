@@ -23,6 +23,7 @@ INSERT INTO TipoVacuna (NombreVacuna, DiasParaSegundaDosis) VALUES
 ('Moderna', 28),
 ('Janssen', 0);
 
+
 -- La relacion de muchos a mucho entre empleado y vacuna
 CREATE TABLE Vacuna (
     IdVacuna INT PRIMARY KEY IDENTITY(1,1),
@@ -33,6 +34,7 @@ CREATE TABLE Vacuna (
     FOREIGN KEY (IdEmpleado) REFERENCES Empleado(IdEmpleado),
     FOREIGN KEY (IdTipoVacuna) REFERENCES TipoVacuna(IdTipoVacuna)
 );
+
 
 -- TRIGGER PARA EL CALCULO DE LAS SEGUNDAS DOSIS
 
@@ -91,15 +93,6 @@ BEGIN
 END;
 
 -- PROCEDIMIENTOS ALMACENADOS
-
--- CONSULTA
-SELECT v.IdVacuna, e.Nombre, e.EstadoVacunacion, tv.NombreVacuna, v.FechaPrimeraDosis, v.FechaSegundaDosis 
-FROM Empleado e
-INNER JOIN Vacuna v 
-ON v.IdEmpleado = e.IdEmpleado
-INNER JOIN TipoVacuna tv
-ON tv.IdTipoVacuna = v.IdTipoVacuna
-WHERE e.IdEmpleado = 4 AND e.Estado = 1;
 
 -- Procedimiento almacenado que ejecuta el CRUD de EMPLEADO
 CREATE PROCEDURE pc_empleado
@@ -191,13 +184,21 @@ BEGIN
     BEGIN
         -- Obtener los datos para el dashboard
         SELECT
-			COUNT(CASE WHEN v.FechaPrimeraDosis IS NULL THEN e.IdEmpleado END) AS SinDosis,
-			COUNT(CASE WHEN v.FechaPrimeraDosis IS NOT NULL AND v.FechaSegundaDosis IS NULL THEN e.IdEmpleado END) AS UnaDosis,
-			COUNT(CASE WHEN v.FechaPrimeraDosis IS NOT NULL AND v.FechaSegundaDosis IS NOT NULL THEN e.IdEmpleado END) AS DosDosis,
+			COUNT(CASE WHEN v.VacunasAplicadas IS NULL THEN e.IdEmpleado END) AS SinDosis,
+			COUNT(CASE WHEN v.VacunasAplicadas = 1 THEN e.IdEmpleado END) AS UnaDosis,
+			COUNT(CASE WHEN v.VacunasAplicadas >= 2 THEN e.IdEmpleado END) AS DosDosis,
 			COUNT(e.IdEmpleado) AS TotalEmpleados
 		FROM
 			Empleado e
-		LEFT JOIN Vacuna v ON e.IdEmpleado = v.IdEmpleado
+		LEFT JOIN (
+			SELECT
+				IdEmpleado,
+				COUNT(*) AS VacunasAplicadas
+			FROM
+				Vacuna v
+			GROUP BY
+				IdEmpleado
+			) v ON e.IdEmpleado = v.IdEmpleado
 		WHERE
 			e.Estado = 1;  
     END
@@ -250,7 +251,7 @@ BEGIN
     END
 	ELSE IF @Opcion = 3
     BEGIN
-		-- Consulta para obtener 
+		-- Consulta para obtener la cantidad administrada
         SELECT tv.NombreVacuna, COUNT(*) AS CantidadAdminsitrada
 		FROM Vacuna v
 		INNER JOIN TipoVacuna tv ON v.IdTipoVacuna = tv.IdTipoVacuna
