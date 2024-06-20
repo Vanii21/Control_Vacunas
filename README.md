@@ -49,3 +49,4 @@ La aplicación se despliega en la siguiente ruta: http://localhost:5173/
 ## LINK para el video de explicacion
 
 Drive: https://drive.google.com/file/d/137MhiNqdxoNmljQzAMeD_C2DKWQSp1zK/view?usp=sharing
+En el minuto 19:55 explico la parte grafica de como quedo la aplicacion.
