@@ -66,7 +66,9 @@ const Empleado = () => {
         showAlertAccept('Se ha agregado correctamente');
         fetchData();
       })
-      .catch(error => console.error(error));
+      .catch(error => {
+        showAlertError('Error: Empleado duplicado', error);
+      });
   };
 
   const handleEditar = (id) => {

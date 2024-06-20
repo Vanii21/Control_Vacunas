@@ -45,3 +45,7 @@ el archivo appsettings.json se encuentra la cadena de conexion el cual permite l
 ## Visualización 
 
 La aplicación se despliega en la siguiente ruta: http://localhost:5173/
+
+## LINK para el video de explicacion
+
+Drive: https://drive.google.com/file/d/137MhiNqdxoNmljQzAMeD_C2DKWQSp1zK/view?usp=sharing
